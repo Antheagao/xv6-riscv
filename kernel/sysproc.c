@@ -106,8 +106,7 @@ sys_sysinfo(void)
 {
   int n;
   argint(0, &n);
-  sysinfo(n);
-  return 0;
+  return sysinfo(n);
 }
 
 // procinfo syscall definition
@@ -116,8 +115,7 @@ sys_procinfo(void)
 {
   struct pinfo *p;
   argaddr(0, (uint64 *)&p);
-  procinfo(p);
-  return 0;
+  return procinfo(p);
   
   //struct pinfo p;
   //uint64 addr;

@@ -761,7 +761,7 @@ procinfo(struct pinfo *in)
 
   // Input the temp process info
   temp.ppid = p->parent->pid;
-  temp.syscall_count = p->syscall_count;
+  temp.syscall_count = p->syscall_count - 1;
   temp.page_usage = p->sz / PGSIZE;
 
   // Copy the temp process info to the input process info
