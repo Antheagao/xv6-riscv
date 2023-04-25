@@ -6,6 +6,12 @@
 #include "proc.h"
 #include "defs.h"
 
+// Global variables
+extern uint64 totalSyscalls;
+
+// Outward functions
+extern int numFreePages(void);
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -115,7 +121,8 @@ allocproc(void)
     acquire(&p->lock);
     if(p->state == UNUSED) {
       goto found;
-    } else {
+    } 
+    else {
       release(&p->lock);
     }
   }
@@ -126,7 +133,7 @@ found:
   p->state = USED;
 
   // Allocate a trapframe page.
-  if((p->trapframe = (struct trapframe *)kalloc()) == 0){
+  if((p->trapframe = (struct trapframe *)kalloc()) == 0) {
     freeproc(p);
     release(&p->lock);
     return 0;
@@ -145,6 +152,9 @@ found:
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
+
+  // Initialize the syscall count
+  p->syscall_count = 0;
 
   return p;
 }
@@ -659,12 +669,12 @@ void
 procdump(void)
 {
   static char *states[] = {
-  [UNUSED]    "unused",
-  [USED]      "used",
-  [SLEEPING]  "sleep ",
-  [RUNNABLE]  "runble",
-  [RUNNING]   "run   ",
-  [ZOMBIE]    "zombie"
+  [UNUSED]    ="unused",
+  [USED]      ="used",
+  [SLEEPING]  ="sleep ",
+  [RUNNABLE]  ="runble",
+  [RUNNING]   ="run   ",
+  [ZOMBIE]    ="zombie"
   };
   struct proc *p;
   char *state;
@@ -686,4 +696,78 @@ procdump(void)
 void print_hello(int n)
 {
   printf("Hello from the kernel space %d\n", n);
+}
+
+/*
+    Return the system info
+    if the input is 0, return the number of processes
+    if the input is 1, return the total number of system calls
+    if the input is 2, return the number of free memory pages
+    otherwise, return -1
+*/
+int 
+sysinfo(int param)
+{
+  // Declare variables
+  struct proc *p = myproc();
+  struct proc *iter;
+  int numProcs = 0;
+
+  if (param == 0) {
+    // Count the number of processes
+    acquire(&p->lock);
+    for (iter = proc; iter < &proc[NPROC]; ++iter) {
+      if (iter->state != UNUSED) {
+        numProcs++;
+      }
+    }
+
+    release(&p->lock);
+    return numProcs;
+  }
+  else if (param == 1) {
+    // Count the number of system calls
+    return totalSyscalls - 1;
+  }
+  else if (param == 2) {
+    // Count the number of free pages
+    return numFreePages();
+  }
+  else {
+    // Return that an error occurred
+    return -1;
+  }
+}
+
+/*
+    Return thee process info
+    Accepts a pointer to a process info struct and fills out the fields
+    int ppid: the process id of its parent process
+    int syscall_count: the number of system calls made by the current process
+    int page_usage: the current process's memory size in pages
+    returns 0 on success and -1 on failure
+*/
+int 
+procinfo(struct pinfo *in)
+{
+  // Declare variables
+  struct proc *p = myproc();
+  struct pinfo temp;
+
+  // Check if the input is null
+  if (!in) {
+    return -1;
+  }
+
+  // Input the temp process info
+  temp.ppid = p->parent->pid;
+  temp.syscall_count = p->syscall_count;
+  temp.page_usage = p->sz / PGSIZE;
+
+  // Copy the temp process info to the input process info
+  if (copyout(p->pagetable, (uint64)in, (char *)&temp, sizeof(temp)) < 0) {
+    return -1;
+  }
+
+  return 0;
 }

@@ -91,10 +91,46 @@ sys_uptime(void)
 }
 
 // hello syscall definition
-uint64 sys_hello(void)
+uint64 
+sys_hello(void)
 {
   int n;
   argint(0, &n);
   print_hello(n);
   return 0;
+}
+
+// sysinfo syscall definition
+uint64 
+sys_sysinfo(void)
+{
+  int n;
+  argint(0, &n);
+  sysinfo(n);
+  return 0;
+}
+
+// procinfo syscall definition
+uint64 
+sys_procinfo(void)
+{
+  struct pinfo *p;
+  argaddr(0, (uint64 *)&p);
+  procinfo(p);
+  return 0;
+  
+  //struct pinfo p;
+  //uint64 addr;
+
+  /*argaddr(0, &addr);
+  if (procinfo(&p) < 0) {
+    return -1;
+  }
+  else {
+    if (copyout(myproc()->pagetable, addr, (char *)&p, sizeof(p)) < 0) {
+      return -1;
+    }
+  }
+  
+  return 0*/
 }
