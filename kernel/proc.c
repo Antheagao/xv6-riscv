@@ -721,7 +721,6 @@ sysinfo(int param)
         numProcs++;
       }
     }
-
     release(&p->lock);
     return numProcs;
   }

@@ -116,19 +116,4 @@ sys_procinfo(void)
   struct pinfo *p;
   argaddr(0, (uint64 *)&p);
   return procinfo(p);
-  
-  //struct pinfo p;
-  //uint64 addr;
-
-  /*argaddr(0, &addr);
-  if (procinfo(&p) < 0) {
-    return -1;
-  }
-  else {
-    if (copyout(myproc()->pagetable, addr, (char *)&p, sizeof(p)) < 0) {
-      return -1;
-    }
-  }
-  
-  return 0*/
 }
