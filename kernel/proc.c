@@ -740,7 +740,7 @@ sysinfo(int param)
 }
 
 /*
-    Return thee process info
+    Return the process info
     Accepts a pointer to a process info struct and fills out the fields
     int ppid: the process id of its parent process
     int syscall_count: the number of system calls made by the current process
