@@ -147,6 +147,7 @@ syscall(void)
   if (num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     // System call number is valid, increment totalSyscalls
     totalSyscalls++;
+    p->syscall_count++;
 
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0
