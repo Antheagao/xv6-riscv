@@ -770,3 +770,62 @@ procinfo(struct pinfo *in)
 
   return 0;
 }
+
+/*
+  This system call prints, for each process, 
+  1) PID, 
+  2) name in a parenthesis, 
+  3) the ticket value, and
+  4) the number of times it has been scheduled to run
+    (i.e., a rough estimation of the number of ticks used by each process).
+  This syscall should report the correct number of ticks used by the process,
+    regardless of what scheduler is being used 
+    (lottery, stride, and the original xv6 scheduler)
+*/
+int
+sched_statistics(void)
+{
+  // Declare variables
+  struct proc *p = myproc();
+  struct proc *iter;
+  int numProcs = 0;
+
+  // Print the header
+  printf("PID\tName\t\tTickets\t\tTicks\n");
+
+  // Print the process info
+  acquire(&p->lock);
+  for (iter = proc; iter < &proc[NPROC]; ++iter) {
+    if (iter->state != UNUSED) {
+      printf("%d\t%s\t\t%d\t\t%d\n", iter->pid, iter->name,
+             iter->tickets, iter->ticks);
+    }
+  }
+  release(&p->lock);
+
+  return 0;
+}
+
+/*
+  This system call sets the caller process’s ticket value
+  to the given parameter. The maximum number of tickets
+  for each process cannot exceed 10000.
+*/
+int
+sched_tickets(int tickets)
+{
+  // Declare variables
+  struct proc *p = myproc();
+
+  // Check if the input is valid
+  if (tickets < 0 || tickets > 10000) {
+    return -1;
+  }
+
+  // Set the number of tickets
+  acquire(&p->lock);
+  p->tickets = tickets;
+  release(&p->lock);
+
+  return 0;
+}

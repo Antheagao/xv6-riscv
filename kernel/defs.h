@@ -110,6 +110,8 @@ void            procdump(void);
 void            print_hello(int);           // hello
 int             sysinfo(int);               // sysinfo
 int             procinfo(struct pinfo*);    // procinfo
+int             sched_statistics(void);      // sched_statistics
+int             sched_tickets(int);          // sched_tickets
 
 // swtch.S
 void            swtch(struct context*, struct context*);

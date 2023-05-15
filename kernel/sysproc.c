@@ -117,3 +117,21 @@ sys_procinfo(void)
   argaddr(0, (uint64 *)&p);
   return procinfo(p);
 }
+
+// sched_statistics syscall definition
+uint64
+sys_sched_statistics(void)
+{
+  int n;
+  argint(0, &n);
+  return sched_statistics(n);
+}
+
+// sched_tickets syscall definition
+uint64
+sys_sched_tickets(void)
+{
+  int n;
+  argint(0, &n);
+  return sched_tickets(n);
+}
