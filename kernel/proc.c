@@ -957,6 +957,8 @@ sched_tickets(int tickets)
   // Set the number of tickets
   acquire(&p->lock);
   p->tickets = tickets;
+  p->stride = 10000 / tickets;
+  p->pass = p->stride;
   release(&p->lock);
 
   return 0;
