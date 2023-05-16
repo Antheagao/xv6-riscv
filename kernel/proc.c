@@ -476,6 +476,7 @@ scheduler(void)
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
+  
 
 #if defined(LOTTERY)
     /*
@@ -496,7 +497,6 @@ scheduler(void)
     */
     struct proc *winner = 0;
     int totalTickets = 0;
-
     // Calculate the total number of tickets in the system
     for (p = proc; p < &proc[NPROC]; ++p) {
       acquire(&p->lock);
@@ -519,6 +519,7 @@ scheduler(void)
           iteratedTickets += p->tickets;
           if (iteratedTickets > winningTicket) {
             winner = p;
+            release(&p->lock);
             break;
           }
         }
@@ -531,6 +532,7 @@ scheduler(void)
       p = winner;
       acquire(&p->lock);
       p->ticks++;
+
       p->state = RUNNING;
       c->proc = p;
       swtch(&c->context, &p->context);
@@ -928,6 +930,7 @@ sched_statistics(void)
   // Print the process info
   for (p = proc; p < &proc[NPROC]; ++p) {
     acquire(&p->lock);
+   
     if (p->state != UNUSED) {
       printf("%d|(%s): tickets: %d, ticks: %d\n", p->pid, p->name,
              p->tickets, p->ticks);
