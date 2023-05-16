@@ -171,7 +171,6 @@ found:
   p->pass = 0;
   p->ticks = 0;
 
-
   return p;
 }
 
@@ -495,15 +494,16 @@ scheduler(void)
       The process with the sum that is greater than the random number
       is the process that is chosen to run.
     */
-    acquire(&ptable.lock);
     struct proc *winner = 0;
     int totalTickets = 0;
 
     // Calculate the total number of tickets in the system
     for (p = proc; p < &proc[NPROC]; ++p) {
+      acquire(&p->lock);
       if (p->state == RUNNABLE) {
         totalTickets += p->tickets;
       }
+      release(&p->lock);
     }
 
     // Generate a random number between 0 and the total number of tickets
@@ -511,8 +511,10 @@ scheduler(void)
       int winningTicket = rand() % totalTickets;
       int iteratedTickets = 0;
 
-      // Iterate through the processes to find the process with the winning ticket
+      // Iterate through the processes to find the process
+      // with the winning ticket
       for (p = proc; p < &proc[NPROC]; ++p) {
+        acquire(&p->lock);
         if (p->state == RUNNABLE) {
           iteratedTickets += p->tickets;
           if (iteratedTickets > winningTicket) {
@@ -520,6 +522,7 @@ scheduler(void)
             break;
           }
         }
+        release(&p->lock);
       }
     }
 
@@ -529,11 +532,9 @@ scheduler(void)
       p->ticks++;
       p->state = RUNNING;
       c->proc = p;
-      swtch(&c->scheduler, &p->context);
+      swtch(&c->context, &p->context);
       c->proc = 0;
     }
-
-    release(&ptable.lock);
 
 #elif defined(STRIDE)
     /*  Research paper description of stride scheduling:
@@ -560,17 +561,18 @@ scheduler(void)
         The process with the smallest pass value is chosen to run.
         THe next pass value is the current pass value plus the stride value.
     */
-    acquire(&ptable.lock);
     struct proc *minimumPassProc = 0;
     int minimumPass = 0x7FFFFFFF;
 
     // Iterate through the processes to find the process
     // with the smallest pass value
     for (p = proc; p < &proc[NPROC]; ++p) {
+      acquire(&p->lock);
       if (p->state == RUNNABLE && p->pass < minimumPass) {
           minimumPassProc = p;
           minimumPass = p->pass;
       }
+      release(&p->lock);
     }
     
     // If a process was chosen, run it
@@ -584,10 +586,13 @@ scheduler(void)
       c->proc = 0;
     }
 
-    release(&ptable.lock);
-
 #else
-
+    /*
+      Round robin scheduling is a preemptive algorithm
+      that is based on the concept of time slicing.
+      A small unit of time called time slice or quantum
+      is defined. Each process gets a time slice of CPU
+    */
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
@@ -914,21 +919,17 @@ int
 sched_statistics(void)
 {
   // Declare variables
-  struct proc *p = myproc();
-  struct proc *iter;
-
-  // Print the header
-  printf("PID|(Name)\tTickets\tTicks\n");
+  struct proc *p;
 
   // Print the process info
-  acquire(&p->lock);
-  for (iter = proc; iter < &proc[NPROC]; ++iter) {
-    if (iter->state != UNUSED) {
-      printf("%d|(%s): tickets: %d, ticks: %d\n", iter->pid, iter->name,
-             iter->tickets, iter->ticks);
+  for (p = proc; p < &proc[NPROC]; ++p) {
+    acquire(&p->lock);
+    if (p->state != UNUSED) {
+      printf("%d|(%s): tickets: %d, ticks: %d\n", p->pid, p->name,
+             p->tickets, p->ticks);
     }
+    release(&p->lock);
   }
-  release(&p->lock);
 
   return 0;
 }

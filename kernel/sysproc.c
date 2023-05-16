@@ -122,9 +122,7 @@ sys_procinfo(void)
 uint64
 sys_sched_statistics(void)
 {
-  int n;
-  argint(0, &n);
-  return sched_statistics(n);
+  return sched_statistics();
 }
 
 // sched_tickets syscall definition
