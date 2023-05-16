@@ -12,6 +12,15 @@ extern uint64 totalSyscalls;
 // Outward functions
 extern int numFreePages(void);
 
+// pseudo random generator (https://stackoverflow.com/a/7603688)
+unsigned short lfsr = 0xACE1u;
+unsigned short bit;
+unsigned short rand()
+{
+  bit = ((lfsr >> 0) ^ (lfsr >> 2) ^ (lfsr >> 3) ^ (lfsr >> 5)) & 1;
+  return lfsr = (lfsr >> 1) | (bit << 15);
+}
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -155,6 +164,13 @@ found:
 
   // Initialize the syscall count
   p->syscall_count = 0;
+
+  // Initialize the tickets, stride, pass, and ticks
+  p->tickets = 10000;
+  p->stride = 0;
+  p->pass = 0;
+  p->ticks = 0;
+
 
   return p;
 }
@@ -462,6 +478,69 @@ scheduler(void)
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
 
+#if defined(LOTTERY)
+    /*
+    Research paper description of lottery scheduling:
+    Lottery scheduling is a randomized resource allocation
+    mechanism. Resource rights are represented by lottery tickets.
+    1 Each allocation is determined by holding a lottery;
+    the resource is granted to the client with the winning
+    ticket. This effectively allocates resources to competing
+    clients in proportion to the number of tickets that they hold.
+    https://intra.ece.ucr.edu/~cong/teaching/UCR/AOS/reading/Lotteryscheduling.pdf
+
+    General description of lottery scheduling:
+    A random number is generated, the processes are iterated through
+    and the sum is taken for the number of tickets each process has.
+    The process with the sum that is greater than the random number
+    is the process that is chosen to run.
+    */
+    acquire(&ptable.lock);
+    struc proc *winner = 0;
+    int totalTickets = 0;
+
+    // Calculate the total number of tickets in the system
+    for (p = proc; p < &proc[NPROC]; p++) {
+      if (p->state == RUNNABLE) {
+        totalTickets += p->tickets;
+      }
+    }
+
+    // Generate a random number between 0 and the total number of tickets
+    if (totalTickets == 0) {
+      int winningTicket = rand() % totalTickets;
+      int iteratedTickets = 0;
+
+      // Iterate through the processes to find the process with the winning ticket
+      for (p = proc; p < &proc[NPROC]; p++) {
+        if (p->state == RUNNABLE) {
+          iteratedTickets += p->tickets;
+          if (iteratedTickets > winningTicket) {
+            winner = p;
+            break;
+          }
+        }
+      }
+    }
+
+    // If a process was chosen, run it
+    if (winner != 0 and winner->state == RUNNABLE) {
+      p = winner;
+      p->ticks++;
+      p->state = RUNNING;
+      c->proc = p;
+      swtch(&c->scheduler, winner->context);
+      c->proc = 0;
+    }
+
+    release(&ptable.lock);
+
+#elif defined(STRIDE)
+    /*  
+    */
+
+#else
+
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
@@ -478,8 +557,12 @@ scheduler(void)
       }
       release(&p->lock);
     }
+
+#endif
   }
 }
+
+//#endif
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
@@ -788,16 +871,15 @@ sched_statistics(void)
   // Declare variables
   struct proc *p = myproc();
   struct proc *iter;
-  int numProcs = 0;
 
   // Print the header
-  printf("PID\tName\t\tTickets\t\tTicks\n");
+  printf("PID|(Name)\tTickets\tTicks\n");
 
   // Print the process info
   acquire(&p->lock);
   for (iter = proc; iter < &proc[NPROC]; ++iter) {
     if (iter->state != UNUSED) {
-      printf("%d\t%s\t\t%d\t\t%d\n", iter->pid, iter->name,
+      printf("%d|(%s): tickets: %d, ticks: %d\n", iter->pid, iter->name,
              iter->tickets, iter->ticks);
     }
   }
