@@ -167,7 +167,7 @@ found:
 
   // Initialize the tickets, stride, pass, and ticks
   p->tickets = 10000;
-  p->stride = 0;
+  p->stride = 10000 / p->tickets;
   p->pass = 0;
   p->ticks = 0;
 
@@ -480,39 +480,39 @@ scheduler(void)
 
 #if defined(LOTTERY)
     /*
-    Research paper description of lottery scheduling:
-    Lottery scheduling is a randomized resource allocation
-    mechanism. Resource rights are represented by lottery tickets.
-    1 Each allocation is determined by holding a lottery;
-    the resource is granted to the client with the winning
-    ticket. This effectively allocates resources to competing
-    clients in proportion to the number of tickets that they hold.
-    https://intra.ece.ucr.edu/~cong/teaching/UCR/AOS/reading/Lotteryscheduling.pdf
+      Research paper description of lottery scheduling:
+      Lottery scheduling is a randomized resource allocation
+      mechanism. Resource rights are represented by lottery tickets.
+      1 Each allocation is determined by holding a lottery;
+      the resource is granted to the client with the winning
+      ticket. This effectively allocates resources to competing
+      clients in proportion to the number of tickets that they hold.
+      https://intra.ece.ucr.edu/~cong/teaching/UCR/AOS/reading/Lotteryscheduling.pdf
 
-    General description of lottery scheduling:
-    A random number is generated, the processes are iterated through
-    and the sum is taken for the number of tickets each process has.
-    The process with the sum that is greater than the random number
-    is the process that is chosen to run.
+      General description of lottery scheduling:
+      A random number is generated, the processes are iterated through
+      and the sum is taken for the number of tickets each process has.
+      The process with the sum that is greater than the random number
+      is the process that is chosen to run.
     */
     acquire(&ptable.lock);
-    struc proc *winner = 0;
+    struct proc *winner = 0;
     int totalTickets = 0;
 
     // Calculate the total number of tickets in the system
-    for (p = proc; p < &proc[NPROC]; p++) {
+    for (p = proc; p < &proc[NPROC]; ++p) {
       if (p->state == RUNNABLE) {
         totalTickets += p->tickets;
       }
     }
 
     // Generate a random number between 0 and the total number of tickets
-    if (totalTickets == 0) {
+    if (totalTickets > 0) {
       int winningTicket = rand() % totalTickets;
       int iteratedTickets = 0;
 
       // Iterate through the processes to find the process with the winning ticket
-      for (p = proc; p < &proc[NPROC]; p++) {
+      for (p = proc; p < &proc[NPROC]; ++p) {
         if (p->state == RUNNABLE) {
           iteratedTickets += p->tickets;
           if (iteratedTickets > winningTicket) {
@@ -524,20 +524,67 @@ scheduler(void)
     }
 
     // If a process was chosen, run it
-    if (winner != 0 and winner->state == RUNNABLE) {
+    if (winner != 0 && winner->state == RUNNABLE) {
       p = winner;
       p->ticks++;
       p->state = RUNNING;
       c->proc = p;
-      swtch(&c->scheduler, winner->context);
+      swtch(&c->scheduler, &p->context);
       c->proc = 0;
     }
 
     release(&ptable.lock);
 
 #elif defined(STRIDE)
-    /*  
+    /*  Research paper description of stride scheduling:
+        Stride scheduling is a deterministic allocation mechanism 
+        for time-shared resources. Resources are allocated
+        in discrete time slices; we refer to the duration of a
+        standard time slice as a quantum.
+        The core stride scheduling idea is to compute a representation
+        of the time interval, orstride, that a client must
+        wait between successive allocations. The client with the
+        smallest stride will be scheduled most frequently.
+        Performing a resource allocation is very simple: the
+        client with the minimum pass is selected, and its pass
+        is advanced by its stride. If more than one client has
+        the same minimum pass value, then any of them may be
+        selected.
+        https://intra.ece.ucr.edu/~cong/teaching/UCR/AOS/reading/Stridescheduling.pdf
+
+        General description of stride scheduling:
+        The stride scheduling algorithm is a deterministic algorithm
+        The initial stride value is a large integer constant divided 
+        by the number of tickets the process has. 
+        The initial pass value is 0. 
+        The process with the smallest pass value is chosen to run.
+        THe next pass value is the current pass value plus the stride value.
     */
+    acquire(&ptable.lock);
+    struct proc *minimumPassProc = 0;
+    int minimumPass = 0x7FFFFFFF;
+
+    // Iterate through the processes to find the process
+    // with the smallest pass value
+    for (p = proc; p < &proc[NPROC]; ++p) {
+      if (p->state == RUNNABLE && p->pass < minimumPass) {
+          minimumPassProc = p;
+          minimumPass = p->pass;
+      }
+    }
+    
+    // If a process was chosen, run it
+    if (minimumPassProc != 0 && minimumPassProc->state == RUNNABLE) {
+      p = minimumPassProc;
+      p->ticks++;
+      p->pass += p->stride;
+      p->state = RUNNING;
+      c->proc = p;
+      swtch(&c->context, &p->context);
+      c->proc = 0;
+    }
+
+    release(&ptable.lock);
 
 #else
 
@@ -561,8 +608,6 @@ scheduler(void)
 #endif
   }
 }
-
-//#endif
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
