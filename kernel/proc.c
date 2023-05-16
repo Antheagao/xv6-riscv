@@ -529,11 +529,13 @@ scheduler(void)
     // If a process was chosen, run it
     if (winner != 0 && winner->state == RUNNABLE) {
       p = winner;
+      acquire(&p->lock);
       p->ticks++;
       p->state = RUNNING;
       c->proc = p;
       swtch(&c->context, &p->context);
       c->proc = 0;
+      release(&p->lock);
     }
 
 #elif defined(STRIDE)
@@ -578,12 +580,14 @@ scheduler(void)
     // If a process was chosen, run it
     if (minimumPassProc != 0 && minimumPassProc->state == RUNNABLE) {
       p = minimumPassProc;
+      acquire(&p->lock);
       p->ticks++;
       p->pass += p->stride;
       p->state = RUNNING;
       c->proc = p;
       swtch(&c->context, &p->context);
       c->proc = 0;
+      release(&p->lock);
     }
 
 #else
