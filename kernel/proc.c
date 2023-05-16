@@ -168,7 +168,7 @@ found:
   // Initialize the tickets, stride, pass, and ticks
   p->tickets = 10000;
   p->stride = 10000 / p->tickets;
-  p->pass = 0;
+  p->pass = p->stride;
   p->ticks = 0;
 
   return p;
